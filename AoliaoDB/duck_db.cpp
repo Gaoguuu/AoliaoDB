@@ -1,68 +1,70 @@
 // a journey of a thousand miles begins with a single step
 // author: enpeizhao
 // blog: www.enpeizhao.com
-#define _CRT_SECURE_NO_WARNINGS
+
 #include "bpt.h"
 #include "TextTable.h"
-
+#include "table_manager.h"
+#include <direct.h>		// for _mkdir
+#include <sys/stat.h> // for mkdir
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
 #include <fstream>
+#include <sys/stat.h>
+#include <vector>
+#include <sstream>
 
 using namespace bpt;
 using namespace std;
 
-const char* errorMessage = "> your input is invalid,print \".help\" for more infomation!\n";
+const char* errorMessage = "> your input is invalid, print \".help\" for more information!\n";
 const char* nextLineHeader = "> ";
 const char* exitMessage = "> bye!\n";
-const char* dbFileName = "G:/code/Project/AoliaoDB/AoliaoDB/AoliaoDB/db.bin";
 
-clock_t startTime, finishTime;
+TableManager* tm = nullptr;
 
 // function prototype
 void printHelpMess();
 void selectCommand();
-int insertRecord(bplus_tree* treePtr, int* key, value_t* values);
-int deleteRecord(bplus_tree* treePtr, int* index);
-int searchRecord(bplus_tree* treePtr, int* index, value_t* return_val);
-int searchAll(bplus_tree* treePtr, int* i_start, int* i_end);
-int updateRecord(bplus_tree* treePtr, int* key, value_t* values);
-void printTable(int* index, value_t* values);
-void intToKeyT(bpt::key_t* a, int* b);
-bool is_file_exist(const char* fileName);
-double durationTime(clock_t* f, clock_t* s);
-
-bplus_tree* duck_db_ptr;
+void processCreateTable(const string& cmd);
+void processInsert(const string& cmd);
+void processSelect(const string& cmd);
+void processDropTable(const string& cmd);
+vector<string> splitString(const string& str, char delimiter);
 
 // initial
 void initialSystem()
 {
-	// step 1 : print help message
+	// step 1: print help message
 	printHelpMess();
-	// step 2 : initial database from file
-	bplus_tree duck_db(dbFileName, (!is_file_exist(dbFileName)));
-	duck_db_ptr = &duck_db;
-	// step 3 : REPL select commdand (insert,delete,update,search)
+
+	// step 2: initialize table manager
+	tm = new TableManager("./data/");
+
+	// step 3: REPL select command
 	selectCommand();
 }
+
 // print help message
 void printHelpMess()
 {
 	cout << "*********************************************************************************************" << endl
 		<< endl
-		<< " 				Welcome to the duck_db\n 				db file locates in \"./data/db.bin\" \n 				Author: enpei\n 				www.enpeizhao.com\n 				2018-08-31" << endl
+		<< "                Welcome to the duck_db\n"
+		<< "                Author: enpei\n"
+		<< "                www.enpeizhao.com\n"
+		<< "                2018-08-31" << endl
 		<< endl
 		<< "*********************************************************************************************" << endl
-		<< "  .help 							print help message;" << endl
-		<< "  .exit 							exit program;" << endl
-		<< "  .reset 							delete db file;" << endl
-		<< "  insert db {index} {name} {age} {email}; 			insert record;" << endl
-		<< "  delete from db where id ={index}; 				delete record;" << endl
-		<< "  update db {name} {age} {email} where id={index}; 		update a record;" << endl
-		<< "  select * from db where id={index}; 				search a record by index;" << endl
-		<< "  select * from db where id in({minIndex},{maxIndex}); 		search records between indexs;" << endl
+		<< "  .help                           print help message;" << endl
+		<< "  .exit                           exit program;" << endl
+		<< "  CREATE TABLE tablename (field1 TYPE1, field2 TYPE2, ...);   create new table;" << endl
+		<< "  DROP TABLE tablename;                                       delete table;" << endl
+		<< "  INSERT INTO tablename VALUES (val1, val2, ...);            insert record;" << endl
+		<< "  SELECT * FROM tablename;                                   query all records;" << endl
+		<< "  SELECT * FROM tablename WHERE condition;                   query with condition;" << endl
 		<< "*********************************************************************************************" << endl
 		<< endl
 		<< nextLineHeader;
@@ -71,204 +73,35 @@ void printHelpMess()
 // select command
 void selectCommand()
 {
-
-	// REPL
-	char* userCommand = new char[256];
-
+	string cmd;
 	while (true)
 	{
+		getline(cin, cmd);
 
-		cin.getline(userCommand, 256);
-
-		if (strcmp(userCommand, ".exit") == 0)
+		if (cmd == ".exit")
 		{
-
 			cout << exitMessage;
 			break;
 		}
-		else if (strcmp(userCommand, ".help") == 0)
+		else if (cmd == ".help")
 		{
-
 			printHelpMess();
 		}
-		else if (strcmp(userCommand, ".reset") == 0)
+		else if (cmd.find("CREATE TABLE") == 0)
 		{
-			if (remove(dbFileName) != 0)
-				cout << "can't delete file" << nextLineHeader;
-			else
-				cout << "DB file has been deleted!" << endl
-				<< endl;
-
-			initialSystem();
+			processCreateTable(cmd);
 		}
-		else if (strncmp(userCommand, "insert", 6) == 0)
+		else if (cmd.find("INSERT INTO") == 0)
 		{
-
-			int* keyIndex = new int;
-			value_t* insertData = new value_t;
-
-			int okNum = sscanf(userCommand, "insert db %d %s %d %s;",
-				keyIndex, insertData->name, &(insertData->age), insertData->email);
-
-			if (okNum < 3)
-			{
-
-				cout << errorMessage << nextLineHeader;
-			}
-			else
-			{
-
-				startTime = clock();
-
-				int return_code = insertRecord(duck_db_ptr, keyIndex, insertData);
-
-				finishTime = clock();
-
-				if (return_code == 0)
-				{
-					// cout << ">insert\n";
-					cout << "> executed insert index:" << *keyIndex << ", time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-						<< nextLineHeader;
-				}
-				else if (return_code == 1)
-				{
-					cout << "> failed: already exist index:" << *keyIndex << "\n"
-						<< nextLineHeader;
-				}
-				else
-				{
-					cout << "> failed!\n"
-						<< nextLineHeader;
-				}
-			}
+			processInsert(cmd);
 		}
-		else if (strncmp(userCommand, "delete", 6) == 0)
+		else if (cmd.find("SELECT") == 0)
 		{
-
-			int* keyIndex = new int;
-
-			int okNum = sscanf(userCommand, "delete from db where id=%d;", keyIndex);
-
-			if (okNum < 1)
-			{
-				cout << errorMessage << nextLineHeader;
-			}
-			else
-			{
-				startTime = clock();
-
-				int return_code = deleteRecord(duck_db_ptr, keyIndex);
-
-				finishTime = clock();
-
-				if (return_code == 0)
-				{
-					cout << "> executed delete index:" << *keyIndex << ", time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-						<< nextLineHeader;
-				}
-				else if (return_code == -1)
-				{
-					cout << "> failed ! no index:" << *keyIndex << "\n"
-						<< nextLineHeader;
-				}
-				else
-				{
-					cout << "> failed!\n"
-						<< nextLineHeader;
-				}
-			}
+			processSelect(cmd);
 		}
-		else if (strncmp(userCommand, "select", 6) == 0)
+		else if (cmd.find("DROP TABLE") == 0)
 		{
-
-			if (!strstr(userCommand, "="))
-			{
-
-				int i_start, i_end;
-
-				int okNum = sscanf(userCommand, "select * from db where id in(%d,%d);", &i_start, &i_end);
-
-				if (okNum < 2)
-				{
-					cout << errorMessage << nextLineHeader;
-				}
-				else
-				{
-					startTime = clock();
-
-					searchAll(duck_db_ptr, &i_start, &i_end);
-
-					finishTime = clock();
-					cout << "> executed search, time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-						<< nextLineHeader;
-				}
-			}
-			else
-			{
-
-				int* keyIndex = new int;
-				int okNum = sscanf(userCommand, "select * from db where id=%d;", keyIndex);
-
-				if (okNum < 1)
-				{
-					cout << errorMessage << nextLineHeader;
-				}
-				else
-				{
-
-					value_t* return_val = new value_t;
-					startTime = clock();
-					//cout << "search begin" << endl;
-					int return_code = searchRecord(duck_db_ptr, keyIndex, return_val);
-					//cout << "search end" << endl;
-					finishTime = clock();
-
-					if (return_code != 0)
-					{
-						cout << "> index:" << *keyIndex << " doesn't exist, time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-							<< nextLineHeader;
-					}
-					else
-					{
-						printTable(keyIndex, return_val);
-						cout << "> executed search, time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-							<< nextLineHeader;
-					}
-				}
-			}
-		}
-		else if (strncmp(userCommand, "update", 6) == 0)
-		{
-
-			int* keyIndex = new int;
-			value_t* updateData = new value_t;
-
-			int okNum = sscanf(userCommand, "update db %s %d %s where id=%d;",
-				updateData->name, &(updateData->age), updateData->email, keyIndex);
-
-			if (okNum < 3)
-			{
-				cout << errorMessage << nextLineHeader;
-			}
-			else
-			{
-				startTime = clock();
-
-				int return_code = updateRecord(duck_db_ptr, keyIndex, updateData);
-
-				finishTime = clock();
-
-				if (return_code == 0)
-				{
-					cout << "> executed update index:" << *keyIndex << ", time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-						<< nextLineHeader;
-				}
-				else
-				{
-					cout << "> failed! no index:" << *keyIndex << ", time : " << durationTime(&finishTime, &startTime) << " seconds\n"
-						<< nextLineHeader;
-				}
-			}
+			processDropTable(cmd);
 		}
 		else
 		{
@@ -277,124 +110,238 @@ void selectCommand()
 	}
 }
 
-// insert
-int insertRecord(bplus_tree* treePtr, int* index, value_t* values)
+void processCreateTable(const string& cmd)
 {
+	// 解析CREATE TABLE语句
+	// 格式: CREATE TABLE tablename (field1 TYPE1(size), field2 TYPE2, ...)
+	size_t leftParen = cmd.find('(');
+	size_t rightParen = cmd.find_last_of(')');
 
-	bpt::key_t key;
-	intToKeyT(&key, index);
-	return (*treePtr).insert(key, *values);
-}
-
-// delete
-int deleteRecord(bplus_tree* treePtr, int* index)
-{
-
-	bpt::key_t key;
-	intToKeyT(&key, index);
-
-	return (*treePtr).remove(key);
-}
-
-// update
-int updateRecord(bplus_tree* treePtr, int* index, value_t* values)
-{
-	bpt::key_t key;
-	intToKeyT(&key, index);
-	return (*treePtr).update(key, *values);
-}
-
-// search by index
-int searchRecord(bplus_tree* treePtr, int* index, value_t* return_val)
-{
-	bpt::key_t key;
-	//cout << "enter searchRecord" << endl;
-	intToKeyT(&key, index);
-	return (*treePtr).search(key, return_val);
-}
-// search all
-int searchAll(bplus_tree* treePtr, int* start, int* end)
-{
-
-	TextTable t('-', '|', '+');
-
-	t.add(" id ");
-	t.add(" name ");
-	t.add(" age ");
-	t.add(" email ");
-	t.endOfRow();
-
-	bpt::key_t key;
-	value_t* return_val = new value_t;
-
-	for (int i = *start; i <= *end; ++i)
+	if (leftParen == string::npos || rightParen == string::npos)
 	{
+		cout << errorMessage << nextLineHeader;
+		return;
+	}
 
-		intToKeyT(&key, &i);
+	// 获取表名
+	string tableName = cmd.substr(13, leftParen - 13);
+	tableName = tableName.substr(0, tableName.find_last_not_of(" ") + 1);
 
-		int return_code = (*treePtr).search(key, return_val);
-		switch (return_code)
+	// 解析字段定义
+	string fieldsDef = cmd.substr(leftParen + 1, rightParen - leftParen - 1);
+	vector<string> fields = splitString(fieldsDef, ',');
+
+	TableDef def;
+	def.tableName = tableName;
+	size_t totalSize = 0;
+
+	for (const auto& field : fields)
+	{
+		istringstream iss(field);
+		string fieldName, fieldType;
+		size_t fieldSize = 0;
+
+		iss >> fieldName >> fieldType;
+
+		FieldDef fieldDef;
+		fieldDef.name = fieldName;
+		if (fieldType == "INT")
 		{
-		case -1:
-			// no exist
-			break;
-		case 0:
-			// find
-			t.add(to_string(i));
-			t.add(return_val->name);
-			t.add(to_string(return_val->age));
-			t.add(return_val->email);
+			fieldDef.type = FieldType::INT;
+			fieldDef.size = sizeof(int);
+		}
+		else if (fieldType.substr(0, 7) == "VARCHAR")
+		{
+			fieldDef.type = FieldType::VARCHAR;
+			size_t sizeStart = fieldType.find('(');
+			size_t sizeEnd = fieldType.find(')');
+			if (sizeStart != string::npos && sizeEnd != string::npos)
+			{
+				fieldDef.size = stoi(fieldType.substr(sizeStart + 1, sizeEnd - sizeStart - 1));
+			}
+			else
+			{
+				fieldDef.size = 256; // 默认大小
+			}
+			cout << fieldDef.size << endl;
+		}
+
+		totalSize += fieldDef.size;
+		def.fields.push_back(fieldDef);
+	}
+
+	def.recordSize = totalSize;
+
+	if (tm->createTable(def))
+	{
+		cout << "> Table created successfully" << nextLineHeader;
+	}
+	else
+	{
+		cout << "> Failed to create table" << nextLineHeader;
+	}
+}
+
+void processInsert(const string& cmd)
+{
+	// 解析INSERT INTO语句
+	// 格式: INSERT INTO tablename VALUES (val1, val2, ...)
+	size_t valuesPos = cmd.find("VALUES");
+	if (valuesPos == string::npos)
+	{
+		cout << errorMessage << nextLineHeader;
+		return;
+	}
+
+	string tableName = cmd.substr(12, valuesPos - 13);
+
+	size_t leftParen = cmd.find('(', valuesPos);
+	size_t rightParen = cmd.find(')', valuesPos);
+
+	if (leftParen == string::npos || rightParen == string::npos)
+	{
+		cout << errorMessage << nextLineHeader;
+		return;
+	}
+
+	string valuesStr = cmd.substr(leftParen + 1, rightParen - leftParen - 1);
+	vector<string> values = splitString(valuesStr, ',');
+
+	// 清理值中的空格和引号
+	for (auto& value : values)
+	{
+		value = value.substr(value.find_first_not_of(" \""));
+		value = value.substr(0, value.find_last_not_of(" \"") + 1);
+	}
+
+	if (tm->insert(tableName, values))
+	{
+		cout << "> Record inserted successfully" << nextLineHeader;
+	}
+	else
+	{
+		cout << "> Failed to insert record" << nextLineHeader;
+	}
+}
+
+void processSelect(const string& cmd)
+{
+	// 解析SELECT语句
+	// 格式: SELECT * FROM tablename [WHERE condition]
+	size_t fromPos = cmd.find("FROM");
+	if (fromPos == string::npos)
+	{
+		cout << errorMessage << nextLineHeader;
+		return;
+	}
+
+	size_t wherePos = cmd.find("WHERE");
+	string tableName = cmd.substr(fromPos + 5,
+		wherePos == string::npos ? string::npos : wherePos - fromPos - 6);
+
+	// 清理表名中的空格
+	tableName = tableName.substr(0, tableName.find_last_not_of(" "));
+
+	string whereClause = "";
+	if (wherePos != string::npos)
+	{
+		whereClause = cmd.substr(wherePos + 6);
+	}
+
+	auto results = tm->select(tableName, whereClause);
+
+	if (!results.empty())
+	{
+		// 获取表定义以显示列名
+		TableDef def = tm->getTableDef(tableName);
+
+		TextTable t('-', '|', '+');
+
+		// 添加表头
+		for (const auto& field : def.fields)
+		{
+			t.add(" " + field.name + " ");
+		}
+		t.endOfRow();
+
+		// 添加数据行
+		for (const auto& row : results)
+		{
+			for (const auto& value : row)
+			{
+				t.add(" " + value + " ");
+			}
 			t.endOfRow();
-			break;
-		case 1:
-			// deleted
-			break;
+		}
+
+		cout << t << nextLineHeader;
+	}
+	else
+	{
+		cout << "> No records found" << nextLineHeader;
+	}
+}
+
+void processDropTable(const string& cmd)
+{
+	// 解析DROP TABLE语句
+	string tableName = cmd.substr(11); // 跳过"DROP TABLE "
+	// 清理表名中的空格和分号
+	size_t lastChar = tableName.find_last_not_of(" \t\r\n;");
+	if (lastChar != string::npos)
+	{
+		tableName = tableName.substr(0, lastChar + 1);
+	}
+	// 清理表名前面的空格
+	size_t firstChar = tableName.find_first_not_of(" \t\r\n");
+	if (firstChar != string::npos)
+	{
+		tableName = tableName.substr(firstChar);
+	}
+
+	if (tm->dropTable(tableName))
+	{
+		cout << "> Table dropped successfully" << nextLineHeader;
+	}
+	else
+	{
+		cout << "> Failed to drop table" << nextLineHeader;
+	}
+}
+
+vector<string> splitString(const string& str, char delimiter)
+{
+	vector<string> tokens;
+	string token;
+	istringstream tokenStream(str);
+
+	while (getline(tokenStream, token, delimiter))
+	{
+		// 去除首尾空格
+		token = token.substr(token.find_first_not_of(" "));
+		token = token.substr(0, token.find_last_not_of(" ") + 1);
+		if (!token.empty())
+		{
+			tokens.push_back(token);
 		}
 	}
-	cout << t << endl;
-	return 0;
-}
-// print table
-void printTable(int* index, value_t* values)
-{
 
-	TextTable t('-', '|', '+');
-
-	t.add(" id ");
-	t.add(" name ");
-	t.add(" age ");
-	t.add(" email ");
-	t.endOfRow();
-
-	t.add(to_string(*index));
-	t.add(values->name);
-	t.add(to_string(values->age));
-	t.add(values->email);
-	t.endOfRow();
-
-	cout << t << endl;
-}
-// int to key_t
-void intToKeyT(bpt::key_t* a, int* b)
-{
-	//cout << "enter intToKeyT" << endl;
-	char key[16] = { 0 };
-	sprintf(key, "%d", *b);
-	*a = key;
+	return tokens;
 }
 
-bool is_file_exist(const char* fileName)
+void ensure_data_directory()
 {
-	ifstream ifile(fileName);
-	return ifile.good();
-}
-
-double durationTime(clock_t* f, clock_t* s)
-{
-	return (double)(*f - *s) / CLOCKS_PER_SEC;
+#ifdef _WIN32
+	_mkdir(".\\data");
+#else
+	mkdir("./data", 0777);
+#endif
 }
 
 int main(int argc, char* argv[])
 {
+	ensure_data_directory();
 	initialSystem();
+	delete tm;
+	return 0;
 }

@@ -1,73 +1,142 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "bpt.h"
-
+#include <direct.h> // for _mkdir
 #include <stdlib.h>
-#include<iostream>
+#include <iostream>
 #include <list>
 #include <algorithm>
-using std::swap;
+#include <iomanip>
 using std::binary_search;
 using std::lower_bound;
+using std::swap;
 using std::upper_bound;
 
-
-namespace bpt {
+namespace bpt
+{
 
     /* custom compare operator for STL algorithms */
-     OPERATOR_KEYCMP(index_t)
-     OPERATOR_KEYCMP(record_t)
+    OPERATOR_KEYCMP(index_t)
+        OPERATOR_KEYCMP(record_t)
 
-     /* helper iterating function */
-    template<class T>
-    inline typename T::child_t begin(T& node) {
+        /* helper iterating function */
+        template <class T>
+    inline typename T::child_t begin(T& node)
+    {
         return node.children;
     }
-    template<class T>
-    inline typename T::child_t end(T& node) {
+    template <class T>
+    inline typename T::child_t end(T& node)
+    {
         return node.children + node.n;
     }
 
     /* helper searching function */
-    inline index_t* find(internal_node_t& node, const key_t& key) {
+    inline index_t* find(internal_node_t& node, const key_t& key)
+    {
         return upper_bound(begin(node), end(node) - 1, key);
     }
-    inline record_t* find(leaf_node_t& node, const key_t& key) {
+    inline record_t* find(leaf_node_t& node, const key_t& key)
+    {
         return lower_bound(begin(node), end(node), key);
     }
 
     bplus_tree::bplus_tree(const char* p, bool force_empty)
         : fp(NULL), fp_level(0)
     {
-
-        memset(path,0, sizeof(path));
+        memset(path, 0, sizeof(path));
         strcpy(path, p);
 
         if (!force_empty)
-            // read tree from file
-            if (map(&meta, OFFSET_META) != 0)
+        {
+            // 尝试读取现有文件
+            open_file("rb+");
+            if (fp && map(&meta, OFFSET_META) != 0)
+            {
+                close_file();
                 force_empty = true;
+            }
+            if (fp)
+            {
+                close_file();
+            }
+        }
 
-        if (force_empty) {
-            open_file("w+"); // truncate file
+        if (force_empty)
+        {
+            // 创建新文件
+            open_file("wb+");
+            if (fp)
+            {
+                // 初始化元数据
+                meta.order = BP_ORDER;
+                meta.value_size = sizeof(value_t);
+                meta.key_size = sizeof(key_t);
+                meta.internal_node_num = 0;
+                meta.leaf_node_num = 0;
+                meta.height = 1; // 初始高度为1
+                meta.slot = OFFSET_BLOCK;
 
-            // create empty tree if file doesn't exist
-            init_from_empty();
-            close_file();
+                // 创建根节点
+                internal_node_t root;
+                root.next = root.prev = root.parent = 0;
+                root.n = 1;
+                meta.root_offset = alloc(&root);
+
+                // 创建第一个叶子节点
+                leaf_node_t leaf;
+                leaf.next = leaf.prev = 0;
+                leaf.parent = meta.root_offset;
+                leaf.n = 0;
+                meta.leaf_offset = alloc(&leaf);
+
+                // 连接根节点和叶子节点
+                root.children[0].child = meta.leaf_offset;
+
+                // 保存所有节点
+                unmap(&meta, OFFSET_META);
+                unmap(&root, meta.root_offset);
+                unmap(&leaf, meta.leaf_offset);
+
+                fflush(fp);
+                close_file();
+            }
         }
     }
 
     int bplus_tree::search(const key_t& key, value_t* value) const
     {
+        std::cout << "Searching for key: " << key.k << std::endl;
+
         leaf_node_t leaf;
-        map(&leaf, search_leaf(key));
+        off_t leaf_offset = search_leaf(key);
+        std::cout << "Found leaf at offset: " << leaf_offset << std::endl;
+
+        if (map(&leaf, leaf_offset) != 0)
+        {
+            std::cerr << "Failed to read leaf node" << std::endl;
+            return -1;
+        }
+
+        std::cout << "Leaf contains " << leaf.n << " records" << std::endl;
+
+        // 打印所有记录的键值
+        for (size_t i = 0; i < leaf.n; i++)
+        {
+            std::cout << "Record " << i << " - Key: " << leaf.children[i].key.k << std::endl;
+        }
+
         // finding the record
         record_t* record = find(leaf, key);
-        if (record != leaf.children + leaf.n) {
+        if (record != leaf.children + leaf.n)
+        {
+            std::cout << "Found record with key " << record->key.k << std::endl;
             // always return the lower bound
             *value = record->value;
             return keycmp(record->key, key);
         }
-        else {
+        else
+        {
+            std::cout << "Record not found" << std::endl;
             return -1;
         }
     }
@@ -82,10 +151,11 @@ namespace bpt {
         off_t off_right = search_leaf(right);
         off_t off = off_left;
         size_t i = 0;
-        record_t* b=nullptr, * e=nullptr;
+        record_t* b = nullptr, * e = nullptr;
 
         leaf_node_t leaf;
-        while (off != off_right && off != 0 && i < max) {
+        while (off != off_right && off != 0 && i < max)
+        {
             map(&leaf, off);
 
             // start point
@@ -103,7 +173,8 @@ namespace bpt {
         }
 
         // the last leaf
-        if (i < max) {
+        if (i < max)
+        {
             map(&leaf, off_right);
 
             b = find(leaf, *left);
@@ -113,12 +184,15 @@ namespace bpt {
         }
 
         // mark for next iteration
-        if (next != NULL) {
-            if (i == max && b != e) {
+        if (next != NULL)
+        {
+            if (i == max && b != e)
+            {
                 *next = true;
                 *left = b->key;
             }
-            else {
+            else
+            {
                 *next = false;
             }
         }
@@ -153,7 +227,8 @@ namespace bpt {
         leaf.n--;
 
         // merge or borrow
-        if (leaf.n < min_n) {
+        if (leaf.n < min_n)
+        {
             // first borrow from left
             bool borrowed = false;
             if (leaf.prev != 0)
@@ -164,12 +239,14 @@ namespace bpt {
                 borrowed = borrow_key(true, leaf);
 
             // finally we merge
-            if (!borrowed) {
+            if (!borrowed)
+            {
                 assert(leaf.next != 0 || leaf.prev != 0);
 
                 key_t index_key;
 
-                if (where == end(parent) - 1) {
+                if (where == end(parent) - 1)
+                {
                     // if leaf is last element then merge | prev | leaf |
                     assert(leaf.prev != 0);
                     leaf_node_t prev;
@@ -180,7 +257,8 @@ namespace bpt {
                     node_remove(&prev, &leaf);
                     unmap(&prev, leaf.prev);
                 }
-                else {
+                else
+                {
                     // else merge | leaf | next |
                     assert(leaf.next != 0);
                     leaf_node_t next;
@@ -195,11 +273,13 @@ namespace bpt {
                 // remove parent's key
                 remove_from_index(parent_off, parent, index_key);
             }
-            else {
+            else
+            {
                 unmap(&leaf, offset);
             }
         }
-        else {
+        else
+        {
             unmap(&leaf, offset);
         }
 
@@ -208,62 +288,187 @@ namespace bpt {
 
     int bplus_tree::insert(const key_t& key, value_t value)
     {
-        off_t parent = search_index(key);
-        off_t offset = search_leaf(parent, key);
-        leaf_node_t leaf;
-        map(&leaf, offset);
+        open_file("rb+");
+        if (!fp)
+        {
+            std::cerr << "Failed to open file" << std::endl;
+            return -1;
+        }
 
-        // check if we have the same key
-        if (binary_search(begin(leaf), end(leaf), key))
-            return 1;
-        if (leaf.n == meta.order) {
+        try
+        {
+            // 读取元数据
+            if (map(&meta, OFFSET_META) != 0)
+            {
+                std::cerr << "Failed to read meta data" << std::endl;
+                close_file();
+                return -1;
+            }
 
-            // split when full
+            std::cout << "Current tree meta - height: " << meta.height
+                << ", leaf_num: " << meta.leaf_node_num
+                << ", internal_num: " << meta.internal_node_num << std::endl;
 
-            // new sibling leaf
-            leaf_node_t new_leaf;
-            node_create(offset, &leaf, &new_leaf);
-            //如果树为空
-            //if (leaf.n == 0) {
-            //    // insert new index key
-            //    insert_key_to_index(parent, new_leaf.children[0].key,
-            //        offset, leaf.next);
+            off_t parent = search_index(key);
+            std::cout << "Found parent node at offset: " << parent << std::endl;
 
-            //    return 0;
-            //}
-            
-            // find even split point
-            size_t point = leaf.n / 2;
-            bool place_right = keycmp(key, leaf.children[point].key) > 0;
-            if (place_right)
-                ++point;
+            off_t offset = search_leaf(parent, key);
+            std::cout << "Found leaf node at offset: " << offset << std::endl;
 
-            // split
-            std::copy(leaf.children + point, leaf.children + leaf.n,
-                new_leaf.children);
-            new_leaf.n = leaf.n - point;
-            leaf.n = point;
+            leaf_node_t leaf;
+            if (map(&leaf, offset) != 0)
+            {
+                std::cerr << "Failed to read leaf node" << std::endl;
+                close_file();
+                return -1;
+            }
 
-            // which part do we put the key
-            if (place_right)
-                insert_record_no_split(&new_leaf, key, value);
+            std::cout << "Leaf node info - n: " << leaf.n
+                << ", parent: " << leaf.parent
+                << ", next: " << leaf.next
+                << ", prev: " << leaf.prev << std::endl;
+
+            // 检查是否已存在相同的键
+            if (binary_search(begin(leaf), end(leaf), key))
+            {
+                std::cout << "Found existing key " << key.k << " in leaf node" << std::endl;
+                std::cout << "Current records in leaf:" << std::endl;
+                for (size_t i = 0; i < leaf.n; i++)
+                {
+                    std::cout << "  Record " << i << " - Key: " << leaf.children[i].key.k
+                        << ", Value size: " << leaf.children[i].value.size << std::endl;
+
+                    // 安全地检查值
+                    if (leaf.children[i].value.size > 0)
+                    {
+                        std::cout << "    Value size: " << leaf.children[i].value.size << std::endl;
+
+                        // 分配新内存并读取值
+                        try
+                        {
+                            value_t temp_value;
+                            temp_value.size = leaf.children[i].value.size;
+                            temp_value.data = new char[temp_value.size];
+
+                            // 从文件中读取值数据
+                            if (fseek(fp, offset + sizeof(leaf_node_t) - BP_ORDER * sizeof(record_t) + i * sizeof(record_t) + offsetof(record_t, value), SEEK_SET) == 0)
+                            {
+                                if (fread(temp_value.data, temp_value.size, 1, fp) == 1)
+                                {
+                                    std::cout << "    First few bytes: ";
+                                    for (size_t j = 0; j < std::min(temp_value.size, size_t(8)); j++)
+                                    {
+                                        std::cout << std::hex << std::setw(2) << std::setfill('0')
+                                            << static_cast<int>(static_cast<unsigned char>(temp_value.data[j]))
+                                            << " ";
+                                    }
+                                    std::cout << std::dec << std::endl;
+                                }
+                            }
+
+                            delete[] temp_value.data;
+                        }
+                        catch (const std::exception& e)
+                        {
+                            std::cerr << "Error reading value data: " << e.what() << std::endl;
+                        }
+                    }
+                }
+                close_file();
+                return 1;
+            }
+
+            // 检查是否需要分裂
+            if (leaf.n >= meta.order)
+            {
+                std::cout << "Need to split leaf node" << std::endl;
+
+                // 创建新的叶子节点
+                leaf_node_t new_leaf;
+                node_create(offset, &leaf, &new_leaf);
+
+                std::cout << "Created new leaf node - next: " << new_leaf.next
+                    << ", prev: " << new_leaf.prev << std::endl;
+
+                // 找到分裂点
+                size_t point = leaf.n / 2;
+                bool place_right = keycmp(key, leaf.children[point].key) > 0;
+                if (place_right)
+                    ++point;
+
+                std::cout << "Split point: " << point
+                    << ", place_right: " << place_right << std::endl;
+
+                // 分裂节点
+                for (size_t i = point; i < leaf.n; i++)
+                {
+                    // 深拷贝数据
+                    new_leaf.children[i - point].key = leaf.children[i].key;
+                    new_leaf.children[i - point].value.clear();
+                    if (leaf.children[i].value.data && leaf.children[i].value.size > 0)
+                    {
+                        new_leaf.children[i - point].value.size = leaf.children[i].value.size;
+                        new_leaf.children[i - point].value.data = new char[leaf.children[i].value.size];
+                        std::memcpy(new_leaf.children[i - point].value.data,
+                            leaf.children[i].value.data,
+                            leaf.children[i].value.size);
+                    }
+                }
+                new_leaf.n = leaf.n - point;
+                leaf.n = point;
+
+                std::cout << "After split - old leaf n: " << leaf.n
+                    << ", new leaf n: " << new_leaf.n << std::endl;
+
+                // 插入新记录
+                if (place_right)
+                {
+                    std::cout << "Inserting into new leaf" << std::endl;
+                    insert_record_no_split(&new_leaf, key, value);
+                }
+                else
+                {
+                    std::cout << "Inserting into old leaf" << std::endl;
+                    insert_record_no_split(&leaf, key, value);
+                }
+
+                // 保存节点
+                if (unmap(&leaf, offset) != 0)
+                {
+                    std::cerr << "Failed to save old leaf" << std::endl;
+                }
+                if (unmap(&new_leaf, leaf.next) != 0)
+                {
+                    std::cerr << "Failed to save new leaf" << std::endl;
+                }
+
+                // 更新索引
+                std::cout << "Updating index with key: " << new_leaf.children[0].key.k << std::endl;
+                insert_key_to_index(parent, new_leaf.children[0].key,
+                    offset, leaf.next);
+            }
             else
+            {
+                std::cout << "Direct insert without split" << std::endl;
                 insert_record_no_split(&leaf, key, value);
+                if (unmap(&leaf, offset) != 0)
+                {
+                    std::cerr << "Failed to save leaf node" << std::endl;
+                }
+            }
 
-            // save leafs
-            unmap(&leaf, offset);
-            unmap(&new_leaf, leaf.next);
-
-            // insert new index key
-            insert_key_to_index(parent, new_leaf.children[0].key,
-                offset, leaf.next);
+            close_file();
+            return 0;
         }
-        else {
-            insert_record_no_split(&leaf, key, value);
-            unmap(&leaf, offset);
+        catch (const std::exception& e)
+        {
+            std::cerr << "Exception during insert: " << e.what() << std::endl;
+            if (fp_level > 0)
+            {
+                close_file();
+            }
+            throw;
         }
-
-        return 0;
     }
 
     int bplus_tree::update(const key_t& key, value_t value)
@@ -274,13 +479,15 @@ namespace bpt {
 
         record_t* record = find(leaf, key);
         if (record != leaf.children + leaf.n)
-            if (keycmp(key, record->key) == 0) {
+            if (keycmp(key, record->key) == 0)
+            {
                 record->value = value;
                 unmap(&leaf, offset);
 
                 return 0;
             }
-            else {
+            else
+            {
                 return 1;
             }
         else
@@ -296,7 +503,8 @@ namespace bpt {
         // remove key
         key_t index_key = begin(node)->key;
         index_t* to_delete = find(node, key);
-        if (to_delete != end(node)) {
+        if (to_delete != end(node))
+        {
             (to_delete + 1)->child = to_delete->child;
             std::copy(to_delete + 1, end(node), to_delete);
         }
@@ -314,7 +522,8 @@ namespace bpt {
         }
 
         // merge or borrow
-        if (node.n < min_n) {
+        if (node.n < min_n)
+        {
             internal_node_t parent;
             map(&parent, node.parent);
 
@@ -328,10 +537,12 @@ namespace bpt {
                 borrowed = borrow_key(true, node, offset);
 
             // finally we merge
-            if (!borrowed) {
+            if (!borrowed)
+            {
                 assert(node.next != 0 || node.prev != 0);
 
-                if (offset == (end(parent) - 1)->child) {
+                if (offset == (end(parent) - 1)->child)
+                {
                     // if leaf is last element then merge | prev | leaf |
                     assert(node.prev != 0);
                     internal_node_t prev;
@@ -343,7 +554,8 @@ namespace bpt {
                     merge_keys(where, prev, node);
                     unmap(&prev, node.prev);
                 }
-                else {
+                else
+                {
                     // else merge | leaf | next |
                     assert(node.next != 0);
                     internal_node_t next;
@@ -359,11 +571,13 @@ namespace bpt {
                 // remove parent's key
                 remove_from_index(node.parent, parent, index_key);
             }
-            else {
+            else
+            {
                 unmap(&node, offset);
             }
         }
-        else {
+        else
+        {
             unmap(&node, offset);
         }
     }
@@ -378,13 +592,15 @@ namespace bpt {
         map(&lender, lender_off);
 
         assert(lender.n >= meta.order / 2);
-        if (lender.n != meta.order / 2) {
+        if (lender.n != meta.order / 2)
+        {
             child_t where_to_lend, where_to_put;
 
             internal_node_t parent;
 
             // swap keys, draw on paper to see why
-            if (from_right) {
+            if (from_right)
+            {
                 where_to_lend = begin(lender);
                 where_to_put = end(borrower);
 
@@ -394,7 +610,8 @@ namespace bpt {
                 where->key = where_to_lend->key;
                 unmap(&parent, borrower.parent);
             }
-            else {
+            else
+            {
                 where_to_lend = end(lender) - 1;
                 where_to_put = begin(borrower);
 
@@ -428,17 +645,20 @@ namespace bpt {
         map(&lender, lender_off);
 
         assert(lender.n >= meta.order / 2);
-        if (lender.n != meta.order / 2) {
+        if (lender.n != meta.order / 2)
+        {
             typename leaf_node_t::child_t where_to_lend, where_to_put;
 
             // decide offset and update parent's index key
-            if (from_right) {
+            if (from_right)
+            {
                 where_to_lend = begin(lender);
                 where_to_put = end(borrower);
                 change_parent_child(borrower.parent, begin(borrower)->key,
                     lender.children[1].key);
             }
-            else {
+            else
+            {
                 where_to_lend = end(lender) - 1;
                 where_to_put = begin(borrower);
                 change_parent_child(lender.parent, begin(lender)->key,
@@ -471,7 +691,8 @@ namespace bpt {
 
         w->key = n;
         unmap(&node, parent);
-        if (w == node.children + node.n - 1) {
+        if (w == node.children + node.n - 1)
+        {
             change_parent_child(node.parent, o, n);
         }
     }
@@ -486,7 +707,7 @@ namespace bpt {
         internal_node_t& node, internal_node_t& next)
     {
         //(end(node) - 1)->key = where->key;
-        //where->key = (end(next) - 1)->key;
+        // where->key = (end(next) - 1)->key;
         std::copy(begin(next), end(next), end(node));
         node.n += next.n;
         node_remove(&node, &next);
@@ -495,18 +716,111 @@ namespace bpt {
     void bplus_tree::insert_record_no_split(leaf_node_t* leaf,
         const key_t& key, const value_t& value)
     {
-        record_t* where = upper_bound(begin(*leaf), end(*leaf), key);
-        std::copy_backward(where, end(*leaf), end(*leaf) + 1);
+        std::cout << "Inserting record, current leaf node count: " << leaf->n << std::endl;
 
-        where->key = key;
-        where->value = value;
-        leaf->n++;
+        // 检查参数有效性
+        if (!leaf)
+        {
+            std::cerr << "Null leaf pointer!" << std::endl;
+            return;
+        }
+
+        // 检查是否需要分裂
+        if (leaf->n >= meta.order)
+        {
+            std::cerr << "Leaf node is full, need to split" << std::endl;
+            return;
+        }
+
+        record_t* where = upper_bound(begin(*leaf), end(*leaf), key);
+        size_t pos = where - begin(*leaf);
+
+        std::cout << "Inserting at position: " << pos << std::endl;
+        std::cout << "Moving " << (leaf->n - pos) << " records" << std::endl;
+
+        // 从后向前移动记录
+        for (size_t i = leaf->n; i > pos; --i)
+        {
+            std::cout << "Moving record from position " << (i - 1) << " to " << i << std::endl;
+
+            if (i < BP_ORDER)
+            {
+                // 先清理目标位置的旧数据
+                leaf->children[i].value.clear();
+
+                // 复制键
+                leaf->children[i].key = leaf->children[i - 1].key;
+
+                // 复制值
+                if (leaf->children[i - 1].value.data && leaf->children[i - 1].value.size > 0)
+                {
+                    try
+                    {
+                        leaf->children[i].value.size = leaf->children[i - 1].value.size;
+                        leaf->children[i].value.data = new char[leaf->children[i].value.size];
+                        if (!leaf->children[i].value.data)
+                        {
+                            std::cerr << "Memory allocation failed!" << std::endl;
+                            throw std::bad_alloc();
+                        }
+                        std::memcpy(leaf->children[i].value.data,
+                            leaf->children[i - 1].value.data,
+                            leaf->children[i].value.size);
+                    }
+                    catch (const std::exception& e)
+                    {
+                        std::cerr << "Error during record move: " << e.what() << std::endl;
+                        leaf->children[i].value.clear();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        // 在正确的位置插入新记录
+        if (pos < BP_ORDER)
+        {
+            std::cout << "Inserting new record at position " << pos << std::endl;
+            try
+            {
+                // 清理目标位置
+                leaf->children[pos].value.clear();
+
+                // 设置键
+                leaf->children[pos].key = key;
+
+                // 复制值
+                if (value.data && value.size > 0)
+                {
+                    leaf->children[pos].value.size = value.size;
+                    leaf->children[pos].value.data = new char[value.size];
+                    if (!leaf->children[pos].value.data)
+                    {
+                        std::cerr << "Memory allocation failed for new record!" << std::endl;
+                        throw std::bad_alloc();
+                    }
+                    std::memcpy(leaf->children[pos].value.data, value.data, value.size);
+
+                    std::cout << "Successfully copied " << value.size << " bytes of data" << std::endl;
+                }
+
+                leaf->n++;
+                std::cout << "Record inserted, new leaf node count: " << leaf->n << std::endl;
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "Error during new record insertion: " << e.what() << std::endl;
+                leaf->children[pos].value.clear();
+                throw;
+            }
+        }
     }
 
     void bplus_tree::insert_key_to_index(off_t offset, const key_t& key,
         off_t old, off_t after)
     {
-        if (offset == 0) {
+        if (offset == 0)
+        {
             // create new root node
             internal_node_t root;
             root.next = root.prev = root.parent = 0;
@@ -532,7 +846,8 @@ namespace bpt {
         map(&node, offset);
         assert(node.n <= meta.order);
 
-        if (node.n == meta.order) {
+        if (node.n == meta.order)
+        {
             // split when full
 
             internal_node_t new_node;
@@ -572,7 +887,8 @@ namespace bpt {
             // note: middle key's child is reserved
             insert_key_to_index(node.parent, middle_key, offset, node.next);
         }
-        else {
+        else
+        {
             insert_key_to_index_no_split(node, key, after);
             unmap(&node, offset);
         }
@@ -602,7 +918,8 @@ namespace bpt {
         // 1. sizeof(internal_node_t) <= sizeof(leaf_node_t)
         // 2. parent field is placed in the beginning and have same size
         internal_node_t node;
-        while (begin != end) {
+        while (begin != end)
+        {
             map(&node, begin->child);
             node.parent = parent;
             unmap(&node, begin->child, SIZE_NO_CHILDREN);
@@ -614,7 +931,8 @@ namespace bpt {
     {
         off_t org = meta.root_offset;
         int height = meta.height;
-        while (height > 1) {
+        while (height > 1)
+        {
             internal_node_t node;
             map(&node, org);
             index_t* i = upper_bound(begin(node), end(node) - 1, key);
@@ -626,19 +944,20 @@ namespace bpt {
 
     off_t bplus_tree::search_leaf(off_t index, const key_t& key) const
     {
-        if (index == 0) return 0;
+        if (index == 0)
+            return 0;
         internal_node_t node;
         map(&node, index);
-        if (begin(node) == end(node)) {
-            index_t* i = upper_bound(begin(node), end(node), key);
-            return i->child;
-            
-        }
+        // if (begin(node) == end(node)) {
+        //     index_t* i = upper_bound(begin(node), end(node), key);
+        //     return i->child;
+        //
+        // }
         index_t* i = upper_bound(begin(node), end(node) - 1, key);
         return i->child;
     }
 
-    template<class T>
+    template <class T>
     void bplus_tree::node_create(off_t offset, T* node, T* next)
     {
         // new sibling node
@@ -647,7 +966,8 @@ namespace bpt {
         next->prev = offset;
         node->next = alloc(next);
         // update next node's prev
-        if (next->next != 0) {
+        if (next->next != 0)
+        {
             T old_next;
             map(&old_next, next->next, SIZE_NO_CHILDREN);
             old_next.prev = node->next;
@@ -656,12 +976,13 @@ namespace bpt {
         unmap(&meta, OFFSET_META);
     }
 
-    template<class T>
+    template <class T>
     void bplus_tree::node_remove(T* prev, T* node)
     {
         unalloc(node, prev->next);
         prev->next = node->next;
-        if (node->next != 0) {
+        if (node->next != 0)
+        {
             T next;
             map(&next, node->next, SIZE_NO_CHILDREN);
             next.prev = node->prev;
@@ -673,7 +994,7 @@ namespace bpt {
     void bplus_tree::init_from_empty()
     {
         // init default meta
-        memset(&meta,0, sizeof(meta_t));
+        memset(&meta, 0, sizeof(meta_t));
         meta.order = BP_ORDER;
         meta.value_size = sizeof(value_t);
         meta.key_size = sizeof(key_t);

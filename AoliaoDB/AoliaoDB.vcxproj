@@ -129,11 +129,14 @@
   <ItemGroup>
     <ClInclude Include="bpt.h" />
     <ClInclude Include="predefined.h" />
+    <ClInclude Include="table_def.h" />
+    <ClInclude Include="table_manager.h" />
     <ClInclude Include="TextTable.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bpt.cpp" />
     <ClCompile Include="duck_db.cpp" />
+    <ClCompile Include="table_manager.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

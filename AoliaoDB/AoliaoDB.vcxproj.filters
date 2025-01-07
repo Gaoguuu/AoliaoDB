@@ -24,12 +24,21 @@
     <ClInclude Include="predefined.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="table_def.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="table_manager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bpt.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="duck_db.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="table_manager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

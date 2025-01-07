@@ -1,20 +1,20 @@
 ﻿  bpt.cpp
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\predefined.h(35,42): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(180,26): warning C4267: “+=”: 从“size_t”转换到“off_t”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(216,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(233,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.cpp(126,17): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.cpp(616,33): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\predefined.h(155,42): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(388,26): warning C4267: “+=”: 从“size_t”转换到“off_t”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.cpp(200,17): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.cpp(354,32): warning C4267: “参数”: 从“size_t”转换到“long”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.cpp(933,33): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
   duck_db.cpp
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\predefined.h(35,42): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(180,26): warning C4267: “+=”: 从“size_t”转换到“off_t”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(216,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(233,1): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\TextTable.h(113,1): warning C4267: “return”: 从“size_t”转换到“unsigned int”，可能丢失数据
-G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\TextTable.h(122,1): warning C4267: “=”: 从“size_t”转换到“_Ty”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\predefined.h(155,42): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(388,26): warning C4267: “+=”: 从“size_t”转换到“off_t”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\TextTable.h(120,1): warning C4267: “return”: 从“size_t”转换到“unsigned int”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\TextTable.h(131,1): warning C4267: “=”: 从“size_t”转换到“_Ty”，可能丢失数据
           with
           [
               _Ty=unsigned int
           ]
+  table_manager.cpp
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\predefined.h(155,42): warning C4267: “初始化”: 从“size_t”转换到“int”，可能丢失数据
+G:\code\Project\AoliaoDB\AoliaoDB\AoliaoDB\bpt.h(388,26): warning C4267: “+=”: 从“size_t”转换到“off_t”，可能丢失数据
   正在生成代码...
   AoliaoDB.vcxproj -> G:\code\Project\AoliaoDB\AoliaoDB\x64\Debug\AoliaoDB.exe
