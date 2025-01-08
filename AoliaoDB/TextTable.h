@@ -44,12 +44,21 @@ public:
     void add(std::string const& content)
     {
         _current.push_back(content);
+        while (_width.size() < _current.size())
+        {
+            _width.push_back(0);
+        }
+        size_t curr_width = _width[_current.size() - 1];
+        _width[_current.size() - 1] = std::max<size_t>(curr_width, content.size());
     }
 
     void endOfRow()
     {
-        _rows.push_back(_current);
-        _current.assign(0, "");
+        if (!_current.empty())
+        {
+            _rows.push_back(_current);
+            _current.clear();
+        }
     }
 
     template <typename Iterator>
@@ -92,7 +101,7 @@ public:
         return result;
     }
 
-    int width(unsigned i) const
+    size_t width(size_t i) const
     {
         return _width[i];
     }
@@ -103,7 +112,7 @@ private:
     char _corner;
     Row _current;
     std::vector<Row> _rows;
-    std::vector<unsigned> mutable _width;
+    std::vector<size_t> mutable _width;
     std::map<unsigned, Alignment> mutable _alignment;
 
     static std::string repeat(unsigned times, char c)
@@ -122,20 +131,26 @@ private:
 
     void determineWidths() const
     {
-        _width.assign(columns(), 0);
-        for (auto rowIterator = _rows.begin(); rowIterator != _rows.end(); ++rowIterator)
+        if (_rows.empty())
+            return;
+
+        _width.assign(_rows[0].size(), 0);
+
+        for (const auto& row : _rows)
         {
-            Row const& row = *rowIterator;
-            for (unsigned i = 0; i < row.size(); ++i)
+            for (size_t i = 0; i < row.size(); ++i)
             {
-                _width[i] = _width[i] > row[i].size() ? _width[i] : row[i].size();
+                _width[i] = std::max(_width[i], row[i].size());
             }
         }
     }
 
     void setupAlignment() const
     {
-        for (unsigned i = 0; i < columns(); ++i)
+        if (_rows.empty())
+            return;
+
+        for (size_t i = 0; i < _rows[0].size(); ++i)
         {
             if (_alignment.find(i) == _alignment.end())
             {
@@ -147,13 +162,19 @@ private:
 
 std::ostream& operator<<(std::ostream& stream, TextTable const& table)
 {
+    if (table.rows().empty())
+    {
+        stream << "> No records found" << std::endl;
+        return stream;
+    }
+
     table.setup();
     stream << table.ruler() << "\n";
-    for (auto rowIterator = table.rows().begin(); rowIterator != table.rows().end(); ++rowIterator)
+
+    for (const auto& row : table.rows())
     {
-        TextTable::Row const& row = *rowIterator;
         stream << table.vertical();
-        for (unsigned i = 0; i < row.size(); ++i)
+        for (size_t i = 0; i < row.size(); ++i)
         {
             auto alignment = table.alignment(i) == TextTable::Alignment::LEFT ? std::left : std::right;
             stream << std::setw(table.width(i)) << alignment << row[i];

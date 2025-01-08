@@ -7,54 +7,73 @@ class TableManager
 {
 public:
     TableManager(const std::string& dbPath);
+    ~TableManager();
 
-    // 创建新表
     bool createTable(const TableDef& tableDef);
-
-    // 删除表
     bool dropTable(const std::string& tableName);
-
-    // 获取表定义
     TableDef getTableDef(const std::string& tableName);
-
-    // 插入记录
     bool insert(const std::string& tableName, const std::vector<std::string>& values);
-
-    // 查询记录
-    std::vector<std::vector<std::string>> select(const std::string& tableName,
+    std::vector<std::vector<std::string>> select(
+        const std::string& tableName,
+        const std::vector<std::string>& fields = std::vector<std::string>(),
         const std::string& where = "");
 
-    ~TableManager()
-    {
-        // 清理所有打开的表
-        for (auto& pair : tables)
-        {
-            if (pair.second)
-            {
-                delete pair.second;
-                pair.second = nullptr;
-            }
-        }
-        tables.clear();
-        tableDefs.clear();
-    }
+    bool addField(const std::string& tableName, const std::string& fieldName,
+        FieldType type, size_t size = 0);
+    bool dropField(const std::string& tableName, const std::string& fieldName);
+    bool renameField(const std::string& tableName, const std::string& oldName,
+        const std::string& newName);
+    bool alterFieldType(const std::string& tableName, const std::string& fieldName,
+        FieldType newType, size_t newSize = 0);
+
+    bool deleteRecords(const std::string& tableName, const std::string& where = "");
+    bool update(const std::string& tableName,
+        const std::vector<std::pair<std::string, std::string>>& setValues,
+        const std::string& where = "");
+
+    bool renameTable(const std::string& oldName, const std::string& newName);
+
+    std::vector<std::vector<std::string>> selectJoin(
+        const std::string& table1,
+        const std::string& table2,
+        const std::string& joinCondition,
+        const std::vector<std::string>& fields = std::vector<std::string>(),
+        const std::string& where = "");
 
 private:
     std::string dbPath;
     std::map<std::string, bpt::bplus_tree*> tables;
     std::map<std::string, TableDef> tableDefs;
 
-    // 将字符串值转换为二进制格式
+    struct Condition
+    {
+        std::string field;
+        std::string op;
+        std::string value;
+    };
+
     bpt::value_t serializeValues(const TableDef& def,
         const std::vector<std::string>& values);
-
-    // 将二进制格式转换回字符串值
     std::vector<std::string> deserializeValues(const TableDef& def,
         const bpt::value_t& data);
-
-    // 保存表定义到文件
     void saveTableDefs();
-
-    // 从文件加载表定义
     void loadTableDefs();
+    bool rebuildTable(const std::string& tableName,
+        const TableDef& oldDef,
+        const TableDef& newDef,
+        const std::string& oldFieldName = "",
+        const std::string& newFieldName = "");
+    std::vector<Condition> parseWhereClause(const std::string& where);
+    bool matchConditions(const std::vector<std::string>& record,
+        const TableDef& def,
+        const std::vector<Condition>& conditions);
+    int getFieldIndex(const TableDef& def, const std::string& fieldName);
+
+    struct JoinCondition
+    {
+        std::string table1Field;
+        std::string table2Field;
+    };
+
+    JoinCondition parseJoinCondition(const std::string& condition);
 };

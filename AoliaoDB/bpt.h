@@ -12,6 +12,7 @@
 #include <iostream>
 #include <direct.h> // for _mkdir
 #include <io.h>
+#include <vector>
 
 #ifndef UNIT_TEST
 
@@ -246,6 +247,41 @@ namespace bpt
         ~bplus_tree()
         {
             close_tree_file();
+        }
+
+        // Ìí¼Ó±éÀúº¯Êý
+        std::vector<record_t> traverse()
+        {
+            std::vector<record_t> records;
+            if (!fp)
+            {
+                std::cerr << "File not open for traversal" << std::endl;
+                return records;
+            }
+
+            leaf_node_t leaf;
+            off_t offset = meta.leaf_offset;
+            std::cout << "Starting traverse from leaf offset: " << offset << std::endl;
+
+            while (offset != 0)
+            {
+                if (map(&leaf, offset) != 0)
+                {
+                    std::cerr << "Failed to read leaf node at offset: " << offset << std::endl;
+                    break;
+                }
+
+                std::cout << "Reading leaf node with " << leaf.n << " records" << std::endl;
+                for (int i = 0; i < leaf.n; i++)
+                {
+                    records.push_back(leaf.children[i]);
+                    std::cout << "Read record with key: " << leaf.children[i].key.k << std::endl;
+                }
+                offset = leaf.next;
+            }
+
+            std::cout << "Traverse complete, found " << records.size() << " records" << std::endl;
+            return records;
         }
 
 #ifndef UNIT_TEST
