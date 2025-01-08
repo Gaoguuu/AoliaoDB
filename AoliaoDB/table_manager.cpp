@@ -151,48 +151,33 @@ bool TableManager::insert(const std::string& tableName, const std::vector<std::s
         return false;
     }
 
-    auto& tableDef = tableDefIt->second;
-    if (values.size() != tableDef.fields.size())
+    // 验证值的数量
+    if (values.size() != tableDefIt->second.fields.size())
     {
-        std::cerr << "Field count mismatch. Expected: " << tableDef.fields.size()
-            << ", Got: " << values.size() << std::endl;
+        std::cerr << "Invalid number of values" << std::endl;
         return false;
     }
 
-    try
+    // 获取主键值
+    const auto& keyField = tableDefIt->second.fields[0];
+    std::string keyValue = values[0];
+    if (keyValue.front() == '\'' || keyValue.front() == '"')
     {
-        std::cout << "Inserting into table: " << tableName << std::endl;
-        std::cout << "Values: ";
-        for (const auto& val : values)
-        {
-            std::cout << val << " ";
-        }
-        std::cout << std::endl;
-
-        // 序列化数据
-        bpt::value_t value = serializeValues(tableDef, values);
-        std::cout << "Serialized data size: " << value.size << std::endl;
-
-        // 使用第一个字段作为键
-        bpt::key_t key(values[0].c_str());
-        std::cout << "Using key: " << key.k << std::endl;
-
-        // 插入数据
-        int result = it->second->insert(key, value);
-        std::cout << "Insert result code: " << result << std::endl;
-
-        if (result != 0)
-        {
-            std::cerr << "Failed to insert into B+ tree, error code: " << result << std::endl;
-            return false;
-        }
-        return true;
+        keyValue = keyValue.substr(1, keyValue.length() - 2);
     }
-    catch (const std::exception& e)
+
+    // 序列化值
+    bpt::value_t data = serializeValues(tableDefIt->second, values);
+    bpt::key_t key(keyValue.c_str());
+
+    // 插入记录
+    if (it->second->insert(key, data) != 0)
     {
-        std::cerr << "Error during insert: " << e.what() << std::endl;
+        std::cerr << "Failed to insert record" << std::endl;
         return false;
     }
+
+    return true;
 }
 
 // 解析 WHERE 子句
@@ -384,153 +369,85 @@ std::vector<std::vector<std::string>> TableManager::select(
 
 bpt::value_t TableManager::serializeValues(const TableDef& def, const std::vector<std::string>& values)
 {
-    size_t totalSize = def.calculateRecordSize();
-    bpt::value_t result;
-    result.size = totalSize;
-    result.data = new char[totalSize];
-    memset(result.data, 0, totalSize);
+    std::string serialized;
 
-    size_t offset = 0;
     for (size_t i = 0; i < def.fields.size(); i++)
     {
         const auto& field = def.fields[i];
         std::string value = values[i];
 
         // 移除引号（如果存在）
-        if (value.front() == '\'' || value.front() == '"')
+        if (!value.empty() && (value.front() == '\'' || value.front() == '"'))
+        {
             value = value.substr(1, value.length() - 2);
+        }
 
-        // 4字节对齐
-        offset = (offset + 3) & ~3;
-
-        switch (field.type)
+        // 处理 NULL 值
+        if (value == "NULL" || value.empty())
         {
-        case FieldType::INT:
+            serialized += "NULL";
+        }
+        else
         {
-            int val = std::stoi(value);
-            memcpy(result.data + offset, &val, sizeof(int));
-            offset += sizeof(int);
-            break;
+            serialized += value;
         }
-        case FieldType::VARCHAR:
-        {
-            size_t strLen = std::min(value.length(), field.size - 1);
-            memcpy(result.data + offset, value.c_str(), strLen);
-            result.data[offset + strLen] = '\0';
-            offset += field.size;
-            break;
-        }
-        case FieldType::DATETIME:
-        {
-            // 确保日期时间格式正确
-            if (value.length() >= 19) // "YYYY-MM-DD HH:MM:SS"
-            {
-                memcpy(result.data + offset, value.c_str(), 19);
-                result.data[offset + 19] = '\0';
-            }
-            offset += sizeof(time_t);
-            break;
-        }
-        case FieldType::BOOL:
-        {
-            bool val = (value == "true" || value == "1");
-            memcpy(result.data + offset, &val, sizeof(bool));
-            offset += sizeof(bool);
-            break;
-        }
-        case FieldType::FLOAT:
-        {
-            float val = std::stof(value);
-            memcpy(result.data + offset, &val, sizeof(float));
-            offset += sizeof(float);
-            break;
-        }
-        case FieldType::DOUBLE:
-        {
-            double val = std::stod(value);
-            memcpy(result.data + offset, &val, sizeof(double));
-            offset += sizeof(double);
-            break;
-        }
-        }
+        serialized += '\0'; // 使用 null 字符作为分隔符
     }
+
+    bpt::value_t result;
+    result.size = serialized.length() + 1; // +1 for final null terminator
+    result.data = new char[result.size];
+    memcpy(result.data, serialized.c_str(), result.size);
 
     return result;
 }
 
-std::vector<std::string> TableManager::deserializeValues(const TableDef& def, const bpt::value_t& data)
+std::vector<std::string> TableManager::deserializeValues(const TableDef& def,
+    const bpt::value_t& data)
 {
-    std::vector<std::string> result;
-    result.reserve(def.fields.size());
+    std::vector<std::string> values;
+    std::string current;
+    size_t pos = 0;
 
-    size_t offset = 0;
-    for (const auto& field : def.fields)
+    for (size_t i = 0; i < def.fields.size() && pos < data.size; i++)
     {
-        // 4字节对齐
-        offset = (offset + 3) & ~3;
-
-        try
+        current.clear();
+        while (pos < data.size && data.data[pos] != '\0')
         {
-            switch (field.type)
-            {
-            case FieldType::INT:
-            {
-                int val;
-                memcpy(&val, data.data + offset, sizeof(int));
-                result.push_back(std::to_string(val));
-                offset += sizeof(int);
-                break;
-            }
-            case FieldType::VARCHAR:
-            {
-                std::string value(data.data + offset);
-                // 添加引号
-                result.push_back("'" + value + "'");
-                offset += field.size;
-                break;
-            }
-            case FieldType::DATETIME:
-            {
-                std::string value(data.data + offset);
-                // 添加引号
-                result.push_back("'" + value + "'");
-                offset += sizeof(time_t);
-                break;
-            }
-            case FieldType::BOOL:
-            {
-                bool val;
-                memcpy(&val, data.data + offset, sizeof(bool));
-                result.push_back(val ? "true" : "false");
-                offset += sizeof(bool);
-                break;
-            }
-            case FieldType::FLOAT:
-            {
-                float val;
-                memcpy(&val, data.data + offset, sizeof(float));
-                result.push_back(std::to_string(val));
-                offset += sizeof(float);
-                break;
-            }
-            case FieldType::DOUBLE:
-            {
-                double val;
-                memcpy(&val, data.data + offset, sizeof(double));
-                result.push_back(std::to_string(val));
-                offset += sizeof(double);
-                break;
-            }
-            }
+            current += data.data[pos++];
         }
-        catch (const std::exception& e)
+        pos++; // 跳过 null 分隔符
+
+        const auto& field = def.fields[i];
+
+        // 处理 NULL 值
+        if (current == "NULL")
         {
-            std::cerr << "Error deserializing field " << field.name << ": " << e.what() << std::endl;
-            result.push_back("");
+            values.push_back("NULL");
+            continue;
+        }
+
+        // 根据字段类型格式化值
+        switch (field.type)
+        {
+        case FieldType::VARCHAR:
+            values.push_back("'" + current + "'");
+            break;
+        case FieldType::DATETIME:
+            if (current.empty())
+                values.push_back("NULL");
+            else
+                values.push_back("'" + current + "'");
+            break;
+        case FieldType::BOOL:
+            values.push_back(current == "1" || current == "true" ? "true" : "false");
+            break;
+        default:
+            values.push_back(current);
         }
     }
 
-    return result;
+    return values;
 }
 
 void TableManager::saveTableDefs()

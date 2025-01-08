@@ -63,9 +63,33 @@ public:
         field.is_index = is_index;
         field.default_value = default_value;
 
+        // 设置默认值
+        if (field.default_value.empty())
+        {
+            switch (type)
+            {
+            case FieldType::INT:
+                field.default_value = "0";
+                break;
+            case FieldType::VARCHAR:
+                field.default_value = "NULL";
+                break;
+            case FieldType::FLOAT:
+            case FieldType::DOUBLE:
+                field.default_value = "0.0";
+                break;
+            case FieldType::DATETIME:
+                field.default_value = "NULL";
+                break;
+            case FieldType::BOOL:
+                field.default_value = "false";
+                break;
+            }
+        }
+
         // 设置默认大小
         if (type == FieldType::VARCHAR && size == 0)
-            field.size = 256; // VARCHAR 默认长度
+            field.size = 256;
         else if (type == FieldType::INT)
             field.size = sizeof(int);
         else if (type == FieldType::FLOAT)

@@ -1060,19 +1060,16 @@ void ensure_data_directory()
 
 std::string getCurrentTime()
 {
-#ifdef _WIN32
 	time_t now = time(nullptr);
+	char buf[64];
+#ifdef _WIN32
 	struct tm timeinfo;
 	localtime_s(&timeinfo, &now);
-	char buf[64];
 	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
-	return std::string(buf);
 #else
-	time_t now = time(nullptr);
-	char buf[64];
 	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
-	return std::string(buf);
 #endif
+	return std::string(buf);
 }
 
 int main(int argc, char* argv[])
