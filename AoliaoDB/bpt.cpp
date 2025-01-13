@@ -305,15 +305,15 @@ namespace bpt
                 return -1;
             }
 
-            std::cout << "Current tree meta - height: " << meta.height
-                << ", leaf_num: " << meta.leaf_node_num
-                << ", internal_num: " << meta.internal_node_num << std::endl;
+            //std::cout << "Current tree meta - height: " << meta.height
+             //   << ", leaf_num: " << meta.leaf_node_num
+             //   << ", internal_num: " << meta.internal_node_num << std::endl;
 
             off_t parent = search_index(key);
-            std::cout << "Found parent node at offset: " << parent << std::endl;
+            //std::cout << "Found parent node at offset: " << parent << std::endl;
 
             off_t offset = search_leaf(parent, key);
-            std::cout << "Found leaf node at offset: " << offset << std::endl;
+            //std::cout << "Found leaf node at offset: " << offset << std::endl;
 
             leaf_node_t leaf;
             if (map(&leaf, offset) != 0)
@@ -323,10 +323,10 @@ namespace bpt
                 return -1;
             }
 
-            std::cout << "Leaf node info - n: " << leaf.n
-                << ", parent: " << leaf.parent
-                << ", next: " << leaf.next
-                << ", prev: " << leaf.prev << std::endl;
+           // std::cout << "Leaf node info - n: " << leaf.n
+            //    << ", parent: " << leaf.parent
+            //    << ", next: " << leaf.next
+            //    << ", prev: " << leaf.prev << std::endl;
 
             // 检查是否已存在相同的键
             if (binary_search(begin(leaf), end(leaf), key))
@@ -449,7 +449,7 @@ namespace bpt
             }
             else
             {
-                std::cout << "Direct insert without split" << std::endl;
+                //std::cout << "Direct insert without split" << std::endl;
                 insert_record_no_split(&leaf, key, value);
                 if (unmap(&leaf, offset) != 0)
                 {
@@ -716,7 +716,7 @@ namespace bpt
     void bplus_tree::insert_record_no_split(leaf_node_t* leaf,
         const key_t& key, const value_t& value)
     {
-        std::cout << "Inserting record, current leaf node count: " << leaf->n << std::endl;
+        //std::cout << "Inserting record, current leaf node count: " << leaf->n << std::endl;
 
         // 检查参数有效性
         if (!leaf)
@@ -735,13 +735,13 @@ namespace bpt
         record_t* where = upper_bound(begin(*leaf), end(*leaf), key);
         size_t pos = where - begin(*leaf);
 
-        std::cout << "Inserting at position: " << pos << std::endl;
-        std::cout << "Moving " << (leaf->n - pos) << " records" << std::endl;
+        //std::cout << "Inserting at position: " << pos << std::endl;
+        //std::cout << "Moving " << (leaf->n - pos) << " records" << std::endl;
 
         // 从后向前移动记录
         for (size_t i = leaf->n; i > pos; --i)
         {
-            std::cout << "Moving record from position " << (i - 1) << " to " << i << std::endl;
+            //std::cout << "Moving record from position " << (i - 1) << " to " << i << std::endl;
 
             if (i < BP_ORDER)
             {
@@ -780,7 +780,7 @@ namespace bpt
         // 在正确的位置插入新记录
         if (pos < BP_ORDER)
         {
-            std::cout << "Inserting new record at position " << pos << std::endl;
+            //std::cout << "Inserting new record at position " << pos << std::endl;
             try
             {
                 // 清理目标位置
@@ -801,11 +801,11 @@ namespace bpt
                     }
                     std::memcpy(leaf->children[pos].value.data, value.data, value.size);
 
-                    std::cout << "Successfully copied " << value.size << " bytes of data" << std::endl;
+                    //std::cout << "Successfully copied " << value.size << " bytes of data" << std::endl;
                 }
 
                 leaf->n++;
-                std::cout << "Record inserted, new leaf node count: " << leaf->n << std::endl;
+                //std::cout << "Record inserted, new leaf node count: " << leaf->n << std::endl;
             }
             catch (const std::exception& e)
             {

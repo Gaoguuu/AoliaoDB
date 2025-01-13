@@ -71,26 +71,26 @@ namespace bpt
 
         record_t() : value()
         {
-            std::cout << "record_t default constructor" << std::endl;
+            //std::cout << "record_t default constructor" << std::endl;
         }
 
         ~record_t()
         {
-            std::cout << "record_t destructor for key: " << key.k << std::endl;
+            //std::cout << "record_t destructor for key: " << key.k << std::endl;
         }
 
         record_t(const record_t& other) : key(other.key), value()
         {
-            std::cout << "record_t copy constructor for key: " << other.key.k << std::endl;
+            //std::cout << "record_t copy constructor for key: " << other.key.k << std::endl;
             if (other.value.data && other.value.size > 0)
             {
                 try
                 {
-                    std::cout << "Copying value of size: " << other.value.size << std::endl;
+                    //std::cout << "Copying value of size: " << other.value.size << std::endl;
                     value.size = other.value.size;
                     value.data = new char[value.size];
                     std::memcpy(value.data, other.value.data, value.size);
-                    std::cout << "Value copied successfully" << std::endl;
+                    //std::cout << "Value copied successfully" << std::endl;
                 }
                 catch (...)
                 {
@@ -108,7 +108,7 @@ namespace bpt
 
         record_t& operator=(const record_t& other)
         {
-            std::cout << "record_t assignment operator for key: " << other.key.k << std::endl;
+            //std::cout << "record_t assignment operator for key: " << other.key.k << std::endl;
             if (this != &other)
             {
                 key = other.key;
@@ -121,11 +121,11 @@ namespace bpt
                 {
                     if (other.value.data && other.value.size > 0)
                     {
-                        std::cout << "Copying value of size: " << other.value.size << std::endl;
+                        //std::cout << "Copying value of size: " << other.value.size << std::endl;
                         value.data = new char[other.value.size];
                         value.size = other.value.size;
                         std::memcpy(value.data, other.value.data, value.size);
-                        std::cout << "Value copied successfully" << std::endl;
+                       // std::cout << "Value copied successfully" << std::endl;
                     }
                     else
                     {
@@ -261,7 +261,7 @@ namespace bpt
 
             leaf_node_t leaf;
             off_t offset = meta.leaf_offset;
-            std::cout << "Starting traverse from leaf offset: " << offset << std::endl;
+            //std::cout << "Starting traverse from leaf offset: " << offset << std::endl;
 
             while (offset != 0)
             {
@@ -271,16 +271,16 @@ namespace bpt
                     break;
                 }
 
-                std::cout << "Reading leaf node with " << leaf.n << " records" << std::endl;
+                //std::cout << "Reading leaf node with " << leaf.n << " records" << std::endl;
                 for (int i = 0; i < leaf.n; i++)
                 {
                     records.push_back(leaf.children[i]);
-                    std::cout << "Read record with key: " << leaf.children[i].key.k << std::endl;
+                   // std::cout << "Read record with key: " << leaf.children[i].key.k << std::endl;
                 }
                 offset = leaf.next;
             }
 
-            std::cout << "Traverse complete, found " << records.size() << " records" << std::endl;
+            //std::cout << "Traverse complete, found " << records.size() << " records" << std::endl;
             return records;
         }
 
@@ -350,7 +350,7 @@ namespace bpt
         mutable int fp_level;
         void open_file(const char* mode = "rb+") const
         {
-            std::cout << "Opening file: " << path << " mode: " << mode << std::endl;
+            //std::cout << "Opening file: " << path << " mode: " << mode << std::endl;
 
             if (fp_level == 0)
             {
@@ -395,12 +395,12 @@ namespace bpt
             }
 
             ++fp_level;
-            std::cout << "fp_level increased to: " << fp_level << std::endl;
+            //std::cout << "fp_level increased to: " << fp_level << std::endl;
         }
 
         void close_file() const
         {
-            std::cout << "Closing file, current fp_level: " << fp_level << std::endl;
+            //std::cout << "Closing file, current fp_level: " << fp_level << std::endl;
             if (fp_level == 1)
             {
                 if (fp)
@@ -414,7 +414,7 @@ namespace bpt
             {
                 --fp_level;
             }
-            std::cout << "fp_level decreased to: " << fp_level << std::endl;
+            //std::cout << "fp_level decreased to: " << fp_level << std::endl;
         }
 
         /* alloc from disk */
@@ -462,7 +462,7 @@ namespace bpt
             if (!fp)
                 return -1;
 
-            std::cout << "Reading from offset: " << offset << ", size: " << size << std::endl;
+            //std::cout << "Reading from offset: " << offset << ", size: " << size << std::endl;
 
             if (fseek(fp, offset, SEEK_SET) != 0)
             {

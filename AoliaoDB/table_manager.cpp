@@ -55,7 +55,7 @@ bool TableManager::dropTable(const std::string& tableName)
     cleanTableName = cleanTableName.substr(0, cleanTableName.find_last_not_of(" ;") + 1);
     cleanTableName = cleanTableName.substr(cleanTableName.find_first_not_of(" "));
 
-    std::cout << "Attempting to drop table: " << cleanTableName << std::endl;
+    //std::cout << "Attempting to drop table: " << cleanTableName << std::endl;
 
     auto it = tables.find(cleanTableName);
     if (it == tables.end())
@@ -65,7 +65,7 @@ bool TableManager::dropTable(const std::string& tableName)
     }
 
     std::string actualTableName = it->first;
-    std::cout << "Found table: " << actualTableName << std::endl;
+    //std::cout << "Found table: " << actualTableName << std::endl;
 
     // 关闭并删除 B+ 树对象
     if (it->second)
@@ -82,7 +82,7 @@ bool TableManager::dropTable(const std::string& tableName)
 
     // 删除表文件
     std::string filename = dbPath + actualTableName + ".tbl";
-    std::cout << "Deleting file: " << filename << std::endl;
+    //std::cout << "Deleting file: " << filename << std::endl;
 
     // 确保文件被关闭后再删除
 #ifdef _WIN32
@@ -115,7 +115,7 @@ bool TableManager::dropTable(const std::string& tableName)
             return false;
         }
 
-        std::cout << "Table " << actualTableName << " dropped successfully" << std::endl;
+        //std::cout << "Table " << actualTableName << " dropped successfully" << std::endl;
         return true;
     }
     catch (const std::exception& e)
@@ -333,7 +333,7 @@ std::vector<std::vector<std::string>> TableManager::select(
     {
         // 遍历 B+ 树获取所有记录
         auto records = it->second->traverse();
-        std::cout << "Found " << records.size() << " records in table" << std::endl;
+        //std::cout << "Found " << records.size() << " records in table" << std::endl;
 
         // 处理每条记录
         for (const auto& record : records)
@@ -554,10 +554,10 @@ void TableManager::loadTableDefs()
             field.type = static_cast<FieldType>(type);
             def.fields.push_back(field);
 
-            std::cout << "Loaded field: " << field.name
-                << " (type=" << type
-                << ", size=" << field.size
-                << ", default=" << field.default_value << ")" << std::endl;
+            //std::cout << "Loaded field: " << field.name
+            //    << " (type=" << type
+            //    << ", size=" << field.size
+            //    << ", default=" << field.default_value << ")" << std::endl;
         }
 
         // 读取表注释
@@ -583,7 +583,7 @@ void TableManager::loadTableDefs()
             auto* tree = new bpt::bplus_tree(filename.c_str());
             tables[tableName] = tree;
             tableDefs[tableName] = def;
-            std::cout << "Successfully loaded table: " << tableName << std::endl;
+            //std::cout << "Successfully loaded table: " << tableName << std::endl;
         }
         catch (const std::exception& e)
         {
@@ -752,7 +752,7 @@ bool TableManager::rebuildTable(const std::string& tableName,
 
     // 读取原表数据
     auto records = select(tableName);
-    std::cout << "Read " << records.size() << " records from original table" << std::endl;
+    //std::cout << "Read " << records.size() << " records from original table" << std::endl;
 
     // 转换并插入数据到新表
     for (const auto& record : records)
@@ -789,13 +789,13 @@ bool TableManager::rebuildTable(const std::string& tableName,
         }
 
         // 打印调试信息
-        std::cout << "Inserting into table: " << tempTableName << std::endl;
-        std::cout << "Values: ";
+        //std::cout << "Inserting into table: " << tempTableName << std::endl;
+        //std::cout << "Values: ";
         for (const auto& val : newRecord)
         {
-            std::cout << val << " ";
+            //std::cout << val << " ";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
 
         // 插入数据到临时表
         if (!insert(tempTableName, newRecord))
@@ -955,7 +955,7 @@ bool TableManager::update(const std::string& tableName,
 
     // 获取要更新的记录
     auto records = select(cleanTableName, std::vector<std::string>(), where);
-    std::cout << "Found " << records.size() << " records to update" << std::endl;
+    //std::cout << "Found " << records.size() << " records to update" << std::endl;
 
     // 更新每条记录
     for (const auto& record : records)
